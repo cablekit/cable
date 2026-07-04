@@ -1,0 +1,13 @@
+[site]
+title = "My Cable Blog"
+description = "A blog defined with files"
+url = "https://example.com"
+
+[content]
+posts = "content/posts"
+
+[output]
+dir = "dist"
+
+[routes]
+post = "/posts/:slug"

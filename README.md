@@ -33,10 +33,12 @@ my-blog/dist/
 The core promise for Phase 1 is:
 
 ```txt
-A user writes content and config as files.
-The Rust CLI reads those files.
-The Rust CLI generates a static blog into dist/.
-The user can host dist/ anywhere.
+Cable reads a blog folder.
+Cable loads blog.toml.
+Cable finds Markdown posts.
+Cable generates static HTML into dist/.
+Cable copies public assets.
+Cable can build examples/basic and site.
 ```
 
 ## Phase 1 Includes
