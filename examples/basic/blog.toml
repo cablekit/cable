@@ -7,7 +7,7 @@ url = "https://example.com"
 posts = "content/posts"
 
 [output]
-dir = "dist"
+directory = "dist"
 
 [routes]
 post = "/posts/:slug"

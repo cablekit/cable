@@ -1,3 +1,8 @@
+mod build;
+mod config;
+mod fs;
+
+use std::path::{Path, PathBuf};
 use clap::{Parser, Subcommand};
 
 /// A program to generate blog as code
@@ -21,12 +26,18 @@ enum Commands{
 }
 
 
-fn main() {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
 
     match args.command{
         Commands::Build {root} => {
-            println!("Building from root: {}", root)
+            let root = Path::new(&root);
+            let result = build::build_site(PathBuf::from(root))?;
+
+            println!("Build Result {:#?}", result);
+
+            Ok(())
+
         }
     }
 }
