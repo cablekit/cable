@@ -1,13 +1,14 @@
 mod build;
 mod config;
-mod fs;
 mod content;
+mod errors;
+mod fs;
 mod markdown;
-mod routes;
 mod render;
+mod routes;
 
-use std::path::{Path, PathBuf};
 use clap::{Parser, Subcommand};
+use std::path::{Path, PathBuf};
 
 /// A program to generate blog as code
 #[derive(Parser, Debug)]
@@ -18,30 +19,26 @@ struct Args {
 }
 
 #[derive(Debug, Subcommand)]
-enum Commands{
+enum Commands {
     ///Builds a directory
     #[command(arg_required_else_help = true)]
     Build {
-        #[arg(
-            long
-        )]
-        root: String
-    }
+        #[arg(long)]
+        root: String,
+    },
 }
-
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
 
-    match args.command{
-        Commands::Build {root} => {
+    match args.command {
+        Commands::Build { root } => {
             let root = Path::new(&root);
             let result = build::build_site(PathBuf::from(root))?;
 
             println!("Build Result {:#?}", result);
 
             Ok(())
-
         }
     }
 }

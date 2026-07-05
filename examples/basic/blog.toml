@@ -10,4 +10,4 @@ posts = "content/posts"
 directory = "dist"
 
 [routes]
-post = "/posts/:slug"
+post = "./posts/:slug"

@@ -1,9 +1,7 @@
-use std::error::Error;
-use pulldown_cmark::{html, Options, Parser};
+use crate::errors::BuildError;
+use pulldown_cmark::{Options, Parser, html};
 
-pub fn to_html(md_body: &str) -> Result<String, Box<dyn Error>>{
-
-
+pub fn to_html(md_body: &str) -> Result<String, BuildError> {
     let mut options = Options::empty();
 
     // Reasonable blog defaults.
@@ -18,5 +16,4 @@ pub fn to_html(md_body: &str) -> Result<String, Box<dyn Error>>{
     html::push_html(&mut html_output, parser);
 
     Ok(html_output)
-
 }
