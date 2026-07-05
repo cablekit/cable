@@ -3,19 +3,6 @@
 version = 4
 
 [[package]]
-name = "Cable"
-version = "0.1.0"
-dependencies = [
- "chrono",
- "clap",
- "html-escape",
- "pulldown-cmark",
- "serde",
- "serde_yaml",
- "toml",
-]
-
-[[package]]
 name = "android_system_properties"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -91,6 +78,19 @@ name = "bumpalo"
 version = "3.20.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "72f5acc6cb2ba439de613abc23857ec3d78374d8ed5ac84e9d11336e87da8649"
+
+[[package]]
+name = "cable"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "clap",
+ "html-escape",
+ "pulldown-cmark",
+ "serde",
+ "serde_yaml",
+ "toml",
+]
 
 [[package]]
 name = "cc"
