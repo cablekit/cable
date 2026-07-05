@@ -1,0 +1,68 @@
+name: Experimental Tag
+
+on:
+  push:
+    branches:
+      - master
+
+permissions:
+  contents: write
+
+jobs:
+  experimental-tag:
+    name: Test, build, and update experimental tag
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout full history and tags
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Check formatting
+        run: cargo fmt --check
+
+      - name: Lint
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+      - name: Test
+        run: cargo test --all-features
+
+      - name: Build release binary
+        run: cargo build --release
+
+      - name: Find latest version tag
+        id: version
+        shell: bash
+        run: |
+          latest_tag="$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' \
+            | grep -Ev -- '-experimental$' \
+            | sort -V \
+            | tail -n 1)"
+
+          if [ -z "$latest_tag" ]; then
+            echo "No version tag found. Create one first, for example:"
+            echo "  git tag -a v0.1.0 -m 'v0.1.0'"
+            echo "  git push origin v0.1.0"
+            exit 1
+          fi
+
+          experimental_tag="${latest_tag}-experimental"
+
+          echo "latest_tag=$latest_tag" >> "$GITHUB_OUTPUT"
+          echo "experimental_tag=$experimental_tag" >> "$GITHUB_OUTPUT"
+
+          echo "Latest version tag: $latest_tag"
+          echo "Experimental tag: $experimental_tag"
+
+      - name: Move experimental tag
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git tag -f "${{ steps.version.outputs.experimental_tag }}" "$GITHUB_SHA"
+          git push origin "${{ steps.version.outputs.experimental_tag }}" --force
