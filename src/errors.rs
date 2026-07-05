@@ -180,3 +180,34 @@ impl Error for BuildError {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io;
+
+    #[test]
+    fn display_includes_context_for_duplicate_slug() {
+        let error = BuildError::DuplicateSlug {
+            slug: String::from("hello"),
+            first_path: PathBuf::from("content/posts/hello.md"),
+            second_path: PathBuf::from("content/posts/other.md"),
+        };
+
+        let message = error.to_string();
+
+        assert!(message.contains("duplicate slug 'hello'"));
+        assert!(message.contains("content/posts/hello.md"));
+        assert!(message.contains("content/posts/other.md"));
+    }
+
+    #[test]
+    fn source_returns_underlying_io_error() {
+        let error = BuildError::ReadFile {
+            path: PathBuf::from("missing.md"),
+            source: io::Error::new(io::ErrorKind::NotFound, "missing"),
+        };
+
+        assert!(error.source().is_some());
+    }
+}

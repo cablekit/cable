@@ -106,3 +106,111 @@ fn validate_duplicate_slugs(posts: &[Post]) -> Result<(), BuildError> {
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use chrono::NaiveDate;
+    use std::fs;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn test_dir(name: &str) -> PathBuf {
+        let id = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        std::env::temp_dir().join(format!("cable-{name}-{id}"))
+    }
+
+    fn post(slug: &str, source_path: PathBuf) -> Post {
+        Post {
+            title: slug.to_string(),
+            date: NaiveDate::from_ymd_opt(2026, 7, 5).unwrap(),
+            slug: slug.to_string(),
+            tags: Vec::new(),
+            status: Status::Published,
+            body: String::new(),
+            html: String::new(),
+            source_path,
+            output_path: PathBuf::new(),
+            url: String::new(),
+        }
+    }
+
+    #[test]
+    fn validate_duplicate_slugs_reports_both_paths() {
+        let posts = vec![
+            post("hello", PathBuf::from("content/posts/one.md")),
+            post("hello", PathBuf::from("content/posts/two.md")),
+        ];
+
+        let error = validate_duplicate_slugs(&posts).unwrap_err();
+
+        assert!(matches!(
+            error,
+            BuildError::DuplicateSlug {
+                ref slug,
+                ref first_path,
+                ref second_path
+            } if slug == "hello"
+                && first_path == &PathBuf::from("content/posts/one.md")
+                && second_path == &PathBuf::from("content/posts/two.md")
+        ));
+    }
+
+    #[test]
+    fn build_site_writes_index_and_nested_post() {
+        let root = test_dir("build");
+        let posts_dir = root.join("content").join("posts");
+        fs::create_dir_all(posts_dir.join("nested")).unwrap();
+        fs::write(
+            root.join("blog.toml"),
+            r#"
+[site]
+title = "Test Blog"
+description = "A test site"
+url = "https://example.com"
+
+[content]
+posts = "content/posts"
+
+[output]
+directory = "dist"
+
+[routes]
+post = "/posts/:slug"
+"#,
+        )
+        .unwrap();
+        fs::write(
+            posts_dir.join("nested").join("hello.md"),
+            r#"---
+title: "Hello"
+date: "2026-07-05"
+slug: "hello"
+tags: []
+status: "published"
+---
+
+# Hello
+
+Nested body.
+"#,
+        )
+        .unwrap();
+
+        let result = build_site(root.clone()).unwrap();
+
+        assert_eq!(result.posts, 1);
+        assert_eq!(result.drafts, 0);
+        assert!(root.join("dist").join("index.html").exists());
+        assert!(
+            root.join("dist")
+                .join("posts")
+                .join("nested")
+                .join("hello.html")
+                .exists()
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+}

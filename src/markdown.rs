@@ -17,3 +17,16 @@ pub fn to_html(md_body: &str) -> Result<String, BuildError> {
 
     Ok(html_output)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn converts_headers_and_paragraphs_to_html() {
+        let html = to_html("# Hello\n\nThis is a paragraph.").unwrap();
+
+        assert!(html.contains("<h1>Hello</h1>"));
+        assert!(html.contains("<p>This is a paragraph.</p>"));
+    }
+}

@@ -380,3 +380,63 @@ pub fn render_post(config: &BlogConfig, post: &Post) -> Result<String, BuildErro
 
     Ok(html)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::{BlogConfig, ContentConfig, OutputConfig, RouteConfig, SiteConfig};
+    use crate::content::Status;
+    use chrono::NaiveDate;
+    use std::path::PathBuf;
+
+    fn config() -> BlogConfig {
+        BlogConfig {
+            site: SiteConfig {
+                title: String::from("Cable Blog"),
+                description: String::from("Test site"),
+                url: String::from("https://example.com"),
+            },
+            content: ContentConfig {
+                posts: String::from("content/posts"),
+            },
+            output: OutputConfig {
+                directory: PathBuf::from("dist"),
+            },
+            routes: RouteConfig {
+                post: String::from("/posts/:slug"),
+            },
+        }
+    }
+
+    fn post() -> Post {
+        Post {
+            title: String::from("Hello"),
+            date: NaiveDate::from_ymd_opt(2026, 7, 5).unwrap(),
+            slug: String::from("hello"),
+            tags: vec![String::from("rust")],
+            status: Status::Published,
+            body: String::from("# Hello"),
+            html: String::from("<h1>Hello</h1>"),
+            source_path: PathBuf::from("content/posts/hello.md"),
+            output_path: PathBuf::from("dist/posts/hello.html"),
+            url: String::from("/posts/hello.html"),
+        }
+    }
+
+    #[test]
+    fn render_index_includes_post_link() {
+        let html = render_index(&config(), &[post()]).unwrap();
+
+        assert!(html.contains("Cable Blog"));
+        assert!(html.contains(r#"<a href="/posts/hello.html">Hello</a>"#));
+        assert!(html.contains("rust"));
+    }
+
+    #[test]
+    fn render_post_includes_post_body() {
+        let html = render_post(&config(), &post()).unwrap();
+
+        assert!(html.contains("<title>Hello | Cable Blog</title>"));
+        assert!(html.contains("<h1>Hello</h1>"));
+    }
+}

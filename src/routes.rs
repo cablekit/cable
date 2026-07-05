@@ -43,3 +43,38 @@ pub fn post_output_path(output_dir: &PathBuf, url: &String) -> PathBuf {
     let output_path = output_dir.join(url.trim_start_matches('/'));
     output_path
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn post_url_uses_nested_directory_from_source_path() {
+        let posts_dir = PathBuf::from("content/posts");
+        let source_path = posts_dir.join("reviews").join("nested.md");
+
+        let url = post_url("/posts/:slug", "nested", &posts_dir, &source_path).unwrap();
+
+        assert_eq!(url, "/posts/reviews/nested.html");
+    }
+
+    #[test]
+    fn post_url_rejects_routes_without_slug_placeholder() {
+        let posts_dir = PathBuf::from("content/posts");
+        let source_path = posts_dir.join("hello.md");
+
+        let error = post_url("/posts", "hello", &posts_dir, &source_path).unwrap_err();
+
+        assert!(matches!(error, BuildError::MissingRouteSlug { .. }));
+    }
+
+    #[test]
+    fn post_output_path_joins_url_under_output_directory() {
+        let output_dir = PathBuf::from("dist");
+        let url = String::from("/posts/hello.html");
+
+        let output_path = post_output_path(&output_dir, &url);
+
+        assert_eq!(output_path, PathBuf::from("dist").join("posts/hello.html"));
+    }
+}

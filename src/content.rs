@@ -142,3 +142,100 @@ fn post_from_parsed_file(parsed_file: Parsed, source_path: &PathBuf) -> Result<P
         url: format!("/{}/", frontmatter.slug),
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn test_dir(name: &str) -> PathBuf {
+        let id = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        std::env::temp_dir().join(format!("cable-{name}-{id}"))
+    }
+
+    fn valid_post() -> String {
+        String::from(
+            r#"---
+title: "Hello World"
+date: "2026-07-05"
+slug: "hello-world"
+tags:
+  - intro
+status: "published"
+---
+
+# Hello
+
+Body text.
+"#,
+        )
+    }
+
+    #[test]
+    fn discover_markdown_files_finds_nested_markdown_files() {
+        let root = test_dir("discover");
+        let posts = root.join("posts");
+        fs::create_dir_all(posts.join("nested")).unwrap();
+        fs::write(posts.join("hello.md"), "").unwrap();
+        fs::write(posts.join("notes.txt"), "").unwrap();
+        fs::write(posts.join("nested").join("review.md"), "").unwrap();
+
+        let mut files = discover_markdown_files(&posts).unwrap();
+        files.sort();
+
+        assert_eq!(files.len(), 2);
+        assert!(files.contains(&posts.join("hello.md")));
+        assert!(files.contains(&posts.join("nested").join("review.md")));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn parse_post_file_splits_frontmatter_and_body() {
+        let path = PathBuf::from("hello.md");
+
+        let parsed = parse_post_file(&valid_post(), &path).unwrap();
+
+        assert!(parsed.frontmatter.contains("title: \"Hello World\""));
+        assert!(parsed.body.contains("# Hello"));
+    }
+
+    #[test]
+    fn post_from_path_location_deserializes_frontmatter() {
+        let root = test_dir("post");
+        fs::create_dir_all(&root).unwrap();
+        let path = root.join("hello.md");
+        fs::write(&path, valid_post()).unwrap();
+
+        let post = post_from_path_location(&path).unwrap();
+
+        assert_eq!(post.title, "Hello World");
+        assert_eq!(post.date, NaiveDate::from_ymd_opt(2026, 7, 5).unwrap());
+        assert_eq!(post.slug, "hello-world");
+        assert_eq!(post.status, Status::Published);
+        assert!(post.body.contains("Body text."));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn invalid_frontmatter_date_returns_parse_date_error() {
+        let parsed = Parsed {
+            frontmatter: String::from(
+                r#"title: "Bad Date"
+date: "2026-13-05"
+slug: "bad-date"
+tags: []
+status: "published"
+"#,
+            ),
+            body: String::new(),
+        };
+        let path = PathBuf::from("bad-date.md");
+
+        let error = post_from_parsed_file(parsed, &path).unwrap_err();
+
+        assert!(matches!(error, BuildError::ParseDate { .. }));
+    }
+}

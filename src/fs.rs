@@ -85,3 +85,46 @@ pub fn copy_dir_contents(
 
     Ok(copied)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn test_dir(name: &str) -> PathBuf {
+        let id = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        std::env::temp_dir().join(format!("cable-{name}-{id}"))
+    }
+
+    #[test]
+    fn write_file_creates_parent_directories() {
+        let root = test_dir("write-file");
+        let path = root.join("posts").join("hello.html");
+
+        write_file(&path, "hello").unwrap();
+
+        assert_eq!(fs::read_to_string(&path).unwrap(), "hello");
+        clean_dir(&root).unwrap();
+    }
+
+    #[test]
+    fn copy_dir_contents_copies_only_files() {
+        let root = test_dir("copy-dir");
+        let src = root.join("src");
+        let dest = root.join("dest");
+        fs::create_dir_all(src.join("nested")).unwrap();
+        fs::create_dir_all(&dest).unwrap();
+        fs::write(src.join("one.txt"), "one").unwrap();
+        fs::write(src.join("nested").join("two.txt"), "two").unwrap();
+
+        let copied = copy_dir_contents(&src, &dest).unwrap();
+
+        assert_eq!(copied, 1);
+        assert_eq!(fs::read_to_string(dest.join("one.txt")).unwrap(), "one");
+        assert!(!dest.join("nested").exists());
+        clean_dir(&root).unwrap();
+    }
+}
