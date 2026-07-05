@@ -1,3 +1,4 @@
+use std::cmp::Reverse;
 use std::collections::HashMap;
 use std::path::PathBuf;
 
@@ -7,10 +8,10 @@ use crate::{config, content, fs, markdown, render, routes};
 
 #[derive(Debug)]
 pub struct BuildResult {
-    output_dir: PathBuf,
-    posts: usize,
-    drafts: usize,
-    copied_assets: usize,
+    pub output_dir: PathBuf,
+    pub posts: usize,
+    pub drafts: usize,
+    pub copied_assets: usize,
 }
 
 pub fn build_site(root: PathBuf) -> Result<BuildResult, BuildError> {
@@ -42,7 +43,7 @@ pub fn build_site(root: PathBuf) -> Result<BuildResult, BuildError> {
         posts.push(post);
     }
 
-    validate_duplicate_slugs(&*posts)?;
+    validate_duplicate_slugs(&posts)?;
 
     for post in posts.iter_mut() {
         post.html = markdown::to_html(&post.body)?;
@@ -67,7 +68,7 @@ pub fn build_site(root: PathBuf) -> Result<BuildResult, BuildError> {
         .filter(|post| post.status == Status::Published)
         .collect::<Vec<_>>();
 
-    published_posts.sort_by(|a, b| b.date.cmp(&a.date));
+    published_posts.sort_by_key(|post| Reverse(post.date));
 
     let index_html = render::render_index(&config, &published_posts)?;
 
@@ -84,7 +85,7 @@ pub fn build_site(root: PathBuf) -> Result<BuildResult, BuildError> {
     Ok(BuildResult {
         output_dir: root.join("dist"),
         posts: published_posts.len(),
-        drafts: drafts,
+        drafts,
         copied_assets,
     })
 }

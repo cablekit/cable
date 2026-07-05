@@ -113,17 +113,17 @@ fn parse_post_file(raw_file: &str, source_path: &Path) -> Result<Parsed, BuildEr
     })
 }
 
-fn post_from_parsed_file(parsed_file: Parsed, source_path: &PathBuf) -> Result<Post, BuildError> {
+fn post_from_parsed_file(parsed_file: Parsed, source_path: &Path) -> Result<Post, BuildError> {
     let frontmatter: PostFrontmatter =
         serde_yaml::from_str(&parsed_file.frontmatter).map_err(|source| {
             BuildError::ParseFrontmatter {
-                path: source_path.clone(),
+                path: source_path.to_path_buf(),
                 source,
             }
         })?;
     let date = NaiveDate::parse_from_str(&frontmatter.date, "%Y-%m-%d").map_err(|source| {
         BuildError::ParseDate {
-            path: source_path.clone(),
+            path: source_path.to_path_buf(),
             date: frontmatter.date.clone(),
             source,
         }
@@ -137,7 +137,7 @@ fn post_from_parsed_file(parsed_file: Parsed, source_path: &PathBuf) -> Result<P
         status: frontmatter.status,
         body: parsed_file.body,
         html: String::new(),
-        source_path: source_path.clone(),
+        source_path: source_path.to_path_buf(),
         output_path: PathBuf::new(),
         url: format!("/{}/", frontmatter.slug),
     })

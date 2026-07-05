@@ -27,6 +27,7 @@ impl BlogConfig {
 pub struct SiteConfig {
     pub title: String,
     pub description: String,
+    #[allow(dead_code)]
     pub url: String,
 }
 

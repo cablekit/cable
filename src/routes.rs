@@ -39,9 +39,8 @@ pub fn post_url(
     Ok(url)
 }
 
-pub fn post_output_path(output_dir: &PathBuf, url: &String) -> PathBuf {
-    let output_path = output_dir.join(url.trim_start_matches('/'));
-    output_path
+pub fn post_output_path(output_dir: &Path, url: &str) -> PathBuf {
+    output_dir.join(url.trim_start_matches('/'))
 }
 
 #[cfg(test)]

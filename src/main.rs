@@ -36,7 +36,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let root = Path::new(&root);
             let result = build::build_site(PathBuf::from(root))?;
 
-            println!("Build Result {:#?}", result);
+            println!(
+                "Build Result: output={}, posts={}, drafts={}, copied_assets={}",
+                result.output_dir.display(),
+                result.posts,
+                result.drafts,
+                result.copied_assets
+            );
 
             Ok(())
         }
