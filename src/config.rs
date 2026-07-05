@@ -13,7 +13,6 @@ pub struct BlogConfig{
 
 impl BlogConfig {
     pub fn new(path: PathBuf) -> Result<BlogConfig, Box<dyn Error>>{
-        println!("Loading config from {:?}", path);
         let toml_config = fs::read_to_string(path)?;
         let config: BlogConfig = toml::from_str(&toml_config)?;
         Ok(config)

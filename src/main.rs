@@ -1,6 +1,10 @@
 mod build;
 mod config;
 mod fs;
+mod content;
+mod markdown;
+mod routes;
+mod render;
 
 use std::path::{Path, PathBuf};
 use clap::{Parser, Subcommand};
