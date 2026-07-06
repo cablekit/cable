@@ -323,7 +323,6 @@ a:hover {
     margin: 0;
     font-size: clamp(2.5rem, 10vw, 5rem);
     line-height: 0.95;
-    letter-spacing: -0.075em;
 }
 
 .hero p {
