@@ -27,6 +27,13 @@ pub fn build_site(root: PathBuf) -> Result<BuildResult, BuildError> {
     fs::clean_dir(&output_dir)?;
     fs::ensure_dir(&output_dir)?;
 
+    //Copy in the default CSS the user overides.
+    //Should put in Readme this poss
+    fs::write_file(
+        &output_dir.join("style.css"),
+        render::default_css(),
+    )?;
+
     //Non-recursive copy of assets. This skips over any directories
     let copied_assets = if public_dir.exists() {
         fs::copy_dir_contents(&public_dir, &output_dir)?

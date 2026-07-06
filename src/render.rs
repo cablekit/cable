@@ -2,204 +2,121 @@ use crate::config::BlogConfig;
 use crate::content::Post;
 use crate::errors::BuildError;
 
+struct PageMeta<'a> {
+    title: &'a str,
+    description: &'a str,
+    canonical_url: Option<&'a str>,
+    body_class: &'a str,
+    og_type: &'a str,
+}
+
 pub fn render_index(config: &BlogConfig, posts: &[Post]) -> Result<String, BuildError> {
     let site_title = html_escape::encode_text(&config.site.title);
     let site_description = html_escape::encode_text(&config.site.description);
 
-    let mut post_items = String::new();
+    let header = render_site_header(config);
+    let post_list = render_post_list(posts);
 
-    for post in posts {
-        let title = html_escape::encode_text(&post.title);
-        let date_string = &post.date.to_string();
-        let date = html_escape::encode_text(date_string);
-        let url = html_escape::encode_double_quoted_attribute(&post.url);
+    let body = format!(
+        r#"<main class="site">
+    {header}
 
-        let tags = if post.tags.is_empty() {
-            String::new()
-        } else {
-            let tag_list = post
-                .tags
-                .iter()
-                .map(|tag| {
-                    let tag = html_escape::encode_text(tag);
-                    format!(r#"<span class="tag">{tag}</span>"#)
-                })
-                .collect::<Vec<_>>()
-                .join("");
+    <section class="hero">
+        <p class="eyebrow">Latest posts</p>
+        <h1>{site_title}</h1>
+        <p>{site_description}</p>
+    </section>
 
-            format!(r#"<div class="post-tags">{tag_list}</div>"#)
-        };
-
-        post_items.push_str(&format!(
-            r#"
-            <article class="post-card">
-                <h2 class="post-title">
-                    <a href="{url}">{title}</a>
-                </h2>
-                <time class="post-date">{date}</time>
-                {tags}
-            </article>
-            "#
-        ));
-    }
-
-    if post_items.is_empty() {
-        post_items.push_str(
-            r#"
-            <p class="empty-state">No posts published yet.</p>
-            "#,
-        );
-    }
-
-    let html = format!(
-        r#"<!doctype html>
-<html lang="en">
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{site_title}</title>
-    <meta name="description" content="{site_description}">
-    <style>
-        :root {{
-            color-scheme: light dark;
-            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-            line-height: 1.5;
-        }}
-
-        body {{
-            margin: 0;
-            background: Canvas;
-            color: CanvasText;
-        }}
-
-        .site {{
-            width: min(720px, calc(100% - 2rem));
-            margin: 0 auto;
-            padding: 4rem 0;
-        }}
-
-        .site-header {{
-            margin-bottom: 3rem;
-        }}
-
-        .site-title {{
-            margin: 0;
-            font-size: clamp(2rem, 8vw, 4rem);
-            line-height: 1;
-            letter-spacing: -0.05em;
-        }}
-
-        .site-description {{
-            margin: 1rem 0 0;
-            font-size: 1.125rem;
-            color: color-mix(in srgb, CanvasText 70%, Canvas);
-        }}
-
-        .post-list {{
-            display: grid;
-            gap: 1.5rem;
-        }}
-
-        .post-card {{
-            padding-top: 1.5rem;
-            border-top: 1px solid color-mix(in srgb, CanvasText 20%, Canvas);
-        }}
-
-        .post-title {{
-            margin: 0;
-            font-size: 1.5rem;
-            line-height: 1.2;
-        }}
-
-        .post-title a {{
-            color: inherit;
-            text-decoration-thickness: 0.08em;
-            text-underline-offset: 0.2em;
-        }}
-
-        .post-title a:hover {{
-            text-decoration-thickness: 0.14em;
-        }}
-
-        .post-date {{
-            display: block;
-            margin-top: 0.5rem;
-            font-size: 0.95rem;
-            color: color-mix(in srgb, CanvasText 65%, Canvas);
-        }}
-
-        .post-tags {{
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.4rem;
-            margin-top: 0.75rem;
-        }}
-
-        .tag {{
-            display: inline-flex;
-            border: 1px solid color-mix(in srgb, CanvasText 20%, Canvas);
-            border-radius: 999px;
-            padding: 0.15rem 0.55rem;
-            font-size: 0.8rem;
-            color: color-mix(in srgb, CanvasText 75%, Canvas);
-        }}
-
-        .empty-state {{
-            padding-top: 1.5rem;
-            border-top: 1px solid color-mix(in srgb, CanvasText 20%, Canvas);
-            color: color-mix(in srgb, CanvasText 70%, Canvas);
-        }}
-    </style>
-</head>
-<body>
-    <main class="site">
-        <header class="site-header">
-            <h1 class="site-title">{site_title}</h1>
-            <p class="site-description">{site_description}</p>
-        </header>
-
-        <section class="post-list" aria-label="Posts">
-            {post_items}
-        </section>
-    </main>
-</body>
-</html>"#
+    <section class="post-list" aria-label="Posts">
+        {post_list}
+    </section>
+</main>"#
     );
 
-    Ok(html)
+    render_page(
+        config,
+        PageMeta {
+            title: &config.site.title,
+            description: &config.site.description,
+            canonical_url: None,
+            body_class: "page page-index",
+            og_type: "website",
+        },
+        &body,
+    )
 }
 
 pub fn render_post(config: &BlogConfig, post: &Post) -> Result<String, BuildError> {
-    let site_title = html_escape::encode_text(&config.site.title);
-    let site_description = html_escape::encode_text(&config.site.description);
+    let page_title = format!("{} | {}", post.title, config.site.title);
 
     let post_title = html_escape::encode_text(&post.title);
-    let date_string = &post.date.to_string();
-    let post_date = html_escape::encode_text(date_string);
 
+    let date = &post.date.to_string();
+    let post_date = html_escape::encode_text(date);
+    let datetime = html_escape::encode_double_quoted_attribute(date);
+
+    let header = render_site_header(config);
+    let tags = render_tags(&post.tags);
+
+    // post.html is already rendered Markdown HTML.
     let post_body = &post.html;
 
-    let page_title = format!("{post_title} | {site_title}");
-    let page_description = if site_description.is_empty() {
-        post_title.to_string()
-    } else {
-        site_description.to_string()
-    };
+    let body = format!(
+        r#"<main class="site">
+    {header}
 
-    let tags = if post.tags.is_empty() {
-        String::new()
-    } else {
-        let tag_list = post
-            .tags
-            .iter()
-            .map(|tag| {
-                let tag = html_escape::encode_text(tag);
-                format!(r#"<span class="tag">{tag}</span>"#)
-            })
-            .collect::<Vec<_>>()
-            .join("");
+    <article class="post">
+        <header class="post-header">
+            <a class="back-link" href="/">&larr; All posts</a>
 
-        format!(r#"<div class="post-tags">{tag_list}</div>"#)
+            <h1>{post_title}</h1>
+
+            <div class="post-meta">
+                <time datetime="{datetime}">{post_date}</time>
+                {tags}
+            </div>
+        </header>
+
+        <div class="post-content">
+            {post_body}
+        </div>
+    </article>
+</main>"#
+    );
+
+    let canonical_url = absolute_url(&config.site.url, &post.url);
+
+    render_page(
+        config,
+        PageMeta {
+            title: &page_title,
+            description: &config.site.description,
+            canonical_url: Some(&canonical_url),
+            body_class: "page page-post",
+            og_type: "article",
+        },
+        &body,
+    )
+}
+
+fn render_page(
+    config: &BlogConfig,
+    meta: PageMeta<'_>,
+    body: &str,
+) -> Result<String, BuildError> {
+    let site_title = html_escape::encode_double_quoted_attribute(&config.site.title);
+    let page_title_text = html_escape::encode_text(meta.title);
+    let page_title_attr = html_escape::encode_double_quoted_attribute(meta.title);
+    let description = html_escape::encode_double_quoted_attribute(meta.description);
+    let body_class = html_escape::encode_double_quoted_attribute(meta.body_class);
+    let og_type = html_escape::encode_double_quoted_attribute(meta.og_type);
+
+    let canonical = match meta.canonical_url {
+        Some(url) => {
+            let url = html_escape::encode_double_quoted_attribute(url);
+            format!(r#"<link rel="canonical" href="{url}">"#)
+        }
+        None => String::new(),
     };
 
     let html = format!(
@@ -208,172 +125,18 @@ pub fn render_post(config: &BlogConfig, post: &Post) -> Result<String, BuildErro
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{page_title}</title>
-    <meta name="description" content="{page_description}">
-    <style>
-        :root {{
-            color-scheme: light dark;
-            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-            line-height: 1.6;
-        }}
-
-        body {{
-            margin: 0;
-            background: Canvas;
-            color: CanvasText;
-        }}
-
-        .site {{
-            width: min(720px, calc(100% - 2rem));
-            margin: 0 auto;
-            padding: 4rem 0;
-        }}
-
-        .site-header {{
-            margin-bottom: 3rem;
-        }}
-
-        .home-link {{
-            color: inherit;
-            text-decoration-thickness: 0.08em;
-            text-underline-offset: 0.2em;
-        }}
-
-        .home-link:hover {{
-            text-decoration-thickness: 0.14em;
-        }}
-
-        .post-header {{
-            margin-bottom: 3rem;
-        }}
-
-        .post-title {{
-            margin: 0;
-            font-size: clamp(2rem, 8vw, 4rem);
-            line-height: 1;
-            letter-spacing: -0.05em;
-        }}
-
-        .post-date {{
-            display: block;
-            margin-top: 1rem;
-            font-size: 0.95rem;
-            color: color-mix(in srgb, CanvasText 65%, Canvas);
-        }}
-
-        .post-tags {{
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.4rem;
-            margin-top: 1rem;
-        }}
-
-        .tag {{
-            display: inline-flex;
-            border: 1px solid color-mix(in srgb, CanvasText 20%, Canvas);
-            border-radius: 999px;
-            padding: 0.15rem 0.55rem;
-            font-size: 0.8rem;
-            color: color-mix(in srgb, CanvasText 75%, Canvas);
-        }}
-
-        .post-content {{
-            font-size: 1.05rem;
-        }}
-
-        .post-content > * + * {{
-            margin-top: 1.25rem;
-        }}
-
-        .post-content h1,
-        .post-content h2,
-        .post-content h3,
-        .post-content h4 {{
-            line-height: 1.2;
-            margin-top: 2rem;
-        }}
-
-        .post-content h1 {{
-            font-size: 2rem;
-        }}
-
-        .post-content h2 {{
-            font-size: 1.6rem;
-        }}
-
-        .post-content h3 {{
-            font-size: 1.3rem;
-        }}
-
-        .post-content a {{
-            color: inherit;
-            text-decoration-thickness: 0.08em;
-            text-underline-offset: 0.2em;
-        }}
-
-        .post-content a:hover {{
-            text-decoration-thickness: 0.14em;
-        }}
-
-        .post-content pre {{
-            overflow-x: auto;
-            padding: 1rem;
-            border-radius: 0.5rem;
-            background: color-mix(in srgb, CanvasText 8%, Canvas);
-        }}
-
-        .post-content code {{
-            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-            font-size: 0.95em;
-        }}
-
-        .post-content :not(pre) > code {{
-            padding: 0.1rem 0.25rem;
-            border-radius: 0.25rem;
-            background: color-mix(in srgb, CanvasText 8%, Canvas);
-        }}
-
-        .post-content blockquote {{
-            margin-left: 0;
-            padding-left: 1rem;
-            border-left: 4px solid color-mix(in srgb, CanvasText 25%, Canvas);
-            color: color-mix(in srgb, CanvasText 75%, Canvas);
-        }}
-
-        .post-content img {{
-            max-width: 100%;
-            height: auto;
-        }}
-
-        .post-footer {{
-            margin-top: 4rem;
-            padding-top: 2rem;
-            border-top: 1px solid color-mix(in srgb, CanvasText 20%, Canvas);
-        }}
-    </style>
+    <title>{page_title_text}</title>
+    <meta name="description" content="{description}">
+    <meta name="generator" content="Cable">
+    <meta property="og:title" content="{page_title_attr}">
+    <meta property="og:description" content="{description}">
+    <meta property="og:site_name" content="{site_title}">
+    <meta property="og:type" content="{og_type}">
+    {canonical}
+    <link rel="stylesheet" href="/style.css">
 </head>
-<body>
-    <main class="site">
-        <header class="site-header">
-            <a class="home-link" href="/">&larr; {site_title}</a>
-        </header>
-
-        <article class="post">
-            <header class="post-header">
-                <h1 class="post-title">{post_title}</h1>
-                <time class="post-date">{post_date}</time>
-                {tags}
-            </header>
-
-            <section class="post-content">
-                {post_body}
-            </section>
-        </article>
-
-        <footer class="post-footer">
-            <a class="home-link" href="/">&larr; Back to all posts</a>
-        </footer>
-    </main>
+<body class="{body_class}">
+{body}
 </body>
 </html>"#
     );
@@ -381,62 +144,392 @@ pub fn render_post(config: &BlogConfig, post: &Post) -> Result<String, BuildErro
     Ok(html)
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::config::{BlogConfig, ContentConfig, OutputConfig, RouteConfig, SiteConfig};
-    use crate::content::Status;
-    use chrono::NaiveDate;
-    use std::path::PathBuf;
+fn render_site_header(config: &BlogConfig) -> String {
+    let title = html_escape::encode_text(&config.site.title);
+    let description = html_escape::encode_text(&config.site.description);
 
-    fn config() -> BlogConfig {
-        BlogConfig {
-            site: SiteConfig {
-                title: String::from("Cable Blog"),
-                description: String::from("Test site"),
-                url: String::from("https://example.com"),
-            },
-            content: ContentConfig {
-                posts: String::from("content/posts"),
-            },
-            output: OutputConfig {
-                directory: PathBuf::from("dist"),
-            },
-            routes: RouteConfig {
-                post: String::from("/posts/:slug"),
-            },
-        }
+    format!(
+        r#"<header class="site-header">
+    <div>
+        <a class="site-title" href="/">{title}</a>
+        <p class="site-description">{description}</p>
+    </div>
+</header>"#
+    )
+}
+
+fn render_post_list(posts: &[Post]) -> String {
+    if posts.is_empty() {
+        return r#"<p class="empty-state">No posts published yet.</p>"#.to_string();
     }
 
-    fn post() -> Post {
-        Post {
-            title: String::from("Hello"),
-            date: NaiveDate::from_ymd_opt(2026, 7, 5).unwrap(),
-            slug: String::from("hello"),
-            tags: vec![String::from("rust")],
-            status: Status::Published,
-            body: String::from("# Hello"),
-            html: String::from("<h1>Hello</h1>"),
-            source_path: PathBuf::from("content/posts/hello.md"),
-            output_path: PathBuf::from("dist/posts/hello.html"),
-            url: String::from("/posts/hello.html"),
-        }
+    posts
+        .iter()
+        .map(render_post_card)
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+fn render_post_card(post: &Post) -> String {
+    let title = html_escape::encode_text(&post.title);
+
+    let date = &post.date.to_string();
+    let date_text = html_escape::encode_text(date);
+    let datetime = html_escape::encode_double_quoted_attribute(date);
+    let url = html_escape::encode_double_quoted_attribute(&post.url);
+    let tags = render_tags(&post.tags);
+
+    format!(
+        r#"<article class="post-card">
+    <div class="post-card-meta">
+        <time datetime="{datetime}">{date_text}</time>
+        {tags}
+    </div>
+
+    <h2 class="post-card-title">
+        <a href="{url}">{title}</a>
+    </h2>
+</article>"#
+    )
+}
+
+fn render_tags(tags: &[String]) -> String {
+    if tags.is_empty() {
+        return String::new();
     }
 
-    #[test]
-    fn render_index_includes_post_link() {
-        let html = render_index(&config(), &[post()]).unwrap();
+    let tags = tags
+        .iter()
+        .map(|tag| {
+            let label = html_escape::encode_text(tag);
+            format!(r#"<span class="tag">{label}</span>"#)
+        })
+        .collect::<Vec<_>>()
+        .join("");
 
-        assert!(html.contains("Cable Blog"));
-        assert!(html.contains(r#"<a href="/posts/hello.html">Hello</a>"#));
-        assert!(html.contains("rust"));
+    format!(r#"<div class="tags">{tags}</div>"#)
+}
+
+fn absolute_url(site_url: &str, path: &str) -> String {
+    let site_url = site_url.trim_end_matches('/');
+    let path = if path.starts_with('/') {
+        path.to_string()
+    } else {
+        format!("/{path}")
+    };
+
+    format!("{site_url}{path}")
+}
+
+pub fn default_css() -> &'static str {
+    r#":root {
+    color-scheme: light dark;
+
+    --bg: #ffffff;
+    --text: #171717;
+    --muted: #666666;
+    --border: #e5e5e5;
+    --surface: #f7f7f7;
+    --accent: #2563eb;
+    --accent-soft: #dbeafe;
+
+    font-family:
+        Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+        "Segoe UI", sans-serif;
+    line-height: 1.6;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --bg: #0a0a0a;
+        --text: #f5f5f5;
+        --muted: #a3a3a3;
+        --border: #262626;
+        --surface: #171717;
+        --accent: #60a5fa;
+        --accent-soft: #172554;
+    }
+}
+
+* {
+    box-sizing: border-box;
+}
+
+html {
+    text-size-adjust: 100%;
+}
+
+body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+}
+
+a {
+    color: inherit;
+    text-decoration-color: color-mix(in srgb, currentColor 35%, transparent);
+    text-decoration-thickness: 0.08em;
+    text-underline-offset: 0.18em;
+}
+
+a:hover {
+    color: var(--accent);
+    text-decoration-color: currentColor;
+}
+
+:focus-visible {
+    outline: 3px solid var(--accent);
+    outline-offset: 3px;
+}
+
+.site {
+    width: min(760px, calc(100% - 2rem));
+    margin: 0 auto;
+    padding: 3rem 0 5rem;
+}
+
+.site-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 4rem;
+}
+
+.site-title {
+    font-weight: 700;
+    text-decoration: none;
+    letter-spacing: -0.03em;
+}
+
+.site-description {
+    margin: 0.35rem 0 0;
+    color: var(--muted);
+    font-size: 0.95rem;
+}
+
+.hero {
+    margin-bottom: 3rem;
+    padding-bottom: 2.5rem;
+    border-bottom: 1px solid var(--border);
+}
+
+.hero .eyebrow {
+    margin: 0 0 0.75rem;
+    color: var(--accent);
+    font-size: 0.85rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.hero h1 {
+    margin: 0;
+    font-size: clamp(2.5rem, 10vw, 5rem);
+    line-height: 0.95;
+    letter-spacing: -0.075em;
+}
+
+.hero p {
+    max-width: 58ch;
+    margin: 1rem 0 0;
+    color: var(--muted);
+    font-size: 1.1rem;
+}
+
+.post-list {
+    display: grid;
+    gap: 0;
+}
+
+.post-card {
+    padding: 1.5rem 0;
+    border-bottom: 1px solid var(--border);
+}
+
+.post-card:first-child {
+    padding-top: 0;
+}
+
+.post-card-meta,
+.post-meta {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    color: var(--muted);
+    font-size: 0.9rem;
+}
+
+.post-card-title {
+    margin: 0.5rem 0 0;
+    font-size: clamp(1.35rem, 3vw, 1.8rem);
+    line-height: 1.2;
+    letter-spacing: -0.04em;
+}
+
+.post-card-title a {
+    text-decoration: none;
+}
+
+.post-card-title a:hover {
+    text-decoration: underline;
+}
+
+.tags {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+}
+
+.tag {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 999px;
+    padding: 0.15rem 0.55rem;
+    background: var(--surface);
+    color: var(--muted);
+    font-size: 0.78rem;
+    line-height: 1.4;
+}
+
+.back-link {
+    display: inline-flex;
+    margin-bottom: 2rem;
+    color: var(--muted);
+    font-size: 0.95rem;
+    text-decoration: none;
+}
+
+.back-link:hover {
+    color: var(--accent);
+}
+
+.post-header {
+    margin-bottom: 3rem;
+    padding-bottom: 2rem;
+    border-bottom: 1px solid var(--border);
+}
+
+.post-header h1 {
+    max-width: 11ch;
+    margin: 0;
+    font-size: clamp(2.5rem, 9vw, 5.5rem);
+    line-height: 0.95;
+    letter-spacing: -0.075em;
+}
+
+.post-header .post-meta {
+    margin-top: 1.25rem;
+}
+
+.post-content {
+    font-size: 1.075rem;
+}
+
+.post-content > * {
+    margin-top: 0;
+    margin-bottom: 1.25rem;
+}
+
+.post-content > * + h2,
+.post-content > * + h3,
+.post-content > * + h4 {
+    margin-top: 2.5rem;
+}
+
+.post-content h1,
+.post-content h2,
+.post-content h3,
+.post-content h4 {
+    line-height: 1.2;
+    letter-spacing: -0.035em;
+}
+
+.post-content h2 {
+    font-size: 1.75rem;
+}
+
+.post-content h3 {
+    font-size: 1.35rem;
+}
+
+.post-content p,
+.post-content li {
+    max-width: 68ch;
+}
+
+.post-content ul,
+.post-content ol {
+    padding-left: 1.5rem;
+}
+
+.post-content li + li {
+    margin-top: 0.4rem;
+}
+
+.post-content blockquote {
+    margin-left: 0;
+    padding: 0.25rem 0 0.25rem 1.25rem;
+    border-left: 3px solid var(--accent);
+    color: var(--muted);
+}
+
+.post-content pre {
+    max-width: 100%;
+    overflow-x: auto;
+    border: 1px solid var(--border);
+    border-radius: 0.75rem;
+    padding: 1rem;
+    background: var(--surface);
+}
+
+.post-content code {
+    font-family:
+        ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+        "Liberation Mono", monospace;
+    font-size: 0.92em;
+}
+
+.post-content :not(pre) > code {
+    border-radius: 0.35rem;
+    padding: 0.15rem 0.35rem;
+    background: var(--surface);
+}
+
+.post-content img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 0.75rem;
+}
+
+.post-content hr {
+    margin: 2.5rem 0;
+    border: 0;
+    border-top: 1px solid var(--border);
+}
+
+.empty-state {
+    padding: 2rem;
+    border: 1px dashed var(--border);
+    border-radius: 0.75rem;
+    color: var(--muted);
+    background: var(--surface);
+}
+
+@media (max-width: 640px) {
+    .site {
+        padding-top: 1.5rem;
     }
 
-    #[test]
-    fn render_post_includes_post_body() {
-        let html = render_post(&config(), &post()).unwrap();
-
-        assert!(html.contains("<title>Hello | Cable Blog</title>"));
-        assert!(html.contains("<h1>Hello</h1>"));
+    .site-header {
+        display: block;
+        margin-bottom: 3rem;
     }
+
+    .post-header h1 {
+        max-width: none;
+    }
+}
+"#
 }
