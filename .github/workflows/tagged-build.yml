@@ -1,0 +1,84 @@
+name: Tagged Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+      - "v*.*.*-*"
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+  BINARY_NAME: cable
+
+jobs:
+  release:
+    name: Build and publish tagged release
+    runs-on: ubuntu-latest
+
+    # Do not create releases for moving experimental tags like v0.1.0-experimental.
+    if: ${{ !endsWith(github.ref_name, '-experimental') }}
+
+    steps:
+      - name: Checkout Cable
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Show release info
+        run: |
+          echo "Tag: $GITHUB_REF_NAME"
+          echo "Commit: $GITHUB_SHA"
+
+      - name: Check formatting
+        run: cargo fmt --check
+
+      - name: Lint
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+      - name: Test
+        run: cargo test --all-features --locked
+
+      - name: Build release binary
+        run: cargo build --release --locked
+
+      - name: Confirm binary
+        run: |
+          ls -la target/release
+          target/release/${BINARY_NAME} --version || true
+
+      - name: Package Linux binary
+        run: |
+          mkdir -p artifacts/package
+
+          cp "target/release/${BINARY_NAME}" "artifacts/package/${BINARY_NAME}"
+          chmod +x "artifacts/package/${BINARY_NAME}"
+
+          tar -czf \
+            "artifacts/${BINARY_NAME}-${GITHUB_REF_NAME}-linux-x86_64.tar.gz" \
+            -C artifacts/package \
+            "${BINARY_NAME}"
+
+          shasum -a 256 "artifacts/${BINARY_NAME}-${GITHUB_REF_NAME}-linux-x86_64.tar.gz" \
+            > "artifacts/${BINARY_NAME}-${GITHUB_REF_NAME}-linux-x86_64.tar.gz.sha256"
+
+      - name: Create GitHub Release and upload artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            "artifacts/${BINARY_NAME}-${GITHUB_REF_NAME}-linux-x86_64.tar.gz" \
+            "artifacts/${BINARY_NAME}-${GITHUB_REF_NAME}-linux-x86_64.tar.gz.sha256" \
+            --title "$GITHUB_REF_NAME" \
+            --notes "Cable ${GITHUB_REF_NAME}
+
+          Install from source:
+
+          \`\`\`bash
+          cargo install --git https://github.com/${GITHUB_REPOSITORY}.git --tag ${GITHUB_REF_NAME}
+          \`\`\`
+
+          Or download the Linux x86_64 binary artifact attached to this release."
