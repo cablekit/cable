@@ -99,11 +99,7 @@ pub fn render_post(config: &BlogConfig, post: &Post) -> Result<String, BuildErro
     )
 }
 
-fn render_page(
-    config: &BlogConfig,
-    meta: PageMeta<'_>,
-    body: &str,
-) -> Result<String, BuildError> {
+fn render_page(config: &BlogConfig, meta: PageMeta<'_>, body: &str) -> Result<String, BuildError> {
     let site_title = html_escape::encode_double_quoted_attribute(&config.site.title);
     let page_title_text = html_escape::encode_text(meta.title);
     let page_title_attr = html_escape::encode_double_quoted_attribute(meta.title);

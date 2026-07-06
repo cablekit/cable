@@ -29,10 +29,7 @@ pub fn build_site(root: PathBuf) -> Result<BuildResult, BuildError> {
 
     //Copy in the default CSS the user overides.
     //Should put in Readme this poss
-    fs::write_file(
-        &output_dir.join("style.css"),
-        render::default_css(),
-    )?;
+    fs::write_file(&output_dir.join("style.css"), render::default_css())?;
 
     //Non-recursive copy of assets. This skips over any directories
     let copied_assets = if public_dir.exists() {
