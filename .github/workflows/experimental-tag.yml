@@ -50,7 +50,10 @@ jobs:
             exit 1
           fi
 
-          experimental_tag="${latest_tag}-experimental"
+          version="${latest_tag#v}"
+          IFS='.' read -r major minor patch <<< "$version"
+          next_minor=$((minor + 1))
+          experimental_tag="v${major}.${next_minor}.0-experimental"
 
           echo "latest_tag=$latest_tag" >> "$GITHUB_OUTPUT"
           echo "experimental_tag=$experimental_tag" >> "$GITHUB_OUTPUT"
