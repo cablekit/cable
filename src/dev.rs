@@ -33,18 +33,21 @@ pub fn serve(root: &Path, port: u16) -> Result<(), BuildError> {
         };
         let file = std::fs::File::open(&path);
 
-        if file.is_ok() {
-            let response = tiny_http::Response::from_file(file.unwrap());
+        match file {
+            Ok(file) => {
+                let response = tiny_http::Response::from_file(file);
 
-            let response = response.with_header(tiny_http::Header {
-                field: "Content-Type".parse().unwrap(),
-                value: AsciiString::from_ascii(get_content_type(&path)).unwrap(),
-            });
+                let response = response.with_header(tiny_http::Header {
+                    field: "Content-Type".parse().unwrap(),
+                    value: AsciiString::from_ascii(get_content_type(&path)).unwrap(),
+                });
 
-            let _ = rq.respond(response);
-        } else {
-            let rep = tiny_http::Response::new_empty(tiny_http::StatusCode(404));
-            let _ = rq.respond(rep);
+                let _ = rq.respond(response);
+            }
+            Err(_) => {
+                let rep = tiny_http::Response::new_empty(tiny_http::StatusCode(404));
+                let _ = rq.respond(rep);
+            }
         }
     }
 
