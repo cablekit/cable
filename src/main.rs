@@ -1,6 +1,7 @@
 mod build;
 mod config;
 mod content;
+mod dev;
 mod errors;
 mod fs;
 mod markdown;
@@ -35,6 +36,14 @@ enum Commands {
     Validate {
         #[arg(long)]
         root: String,
+    },
+    ///Dev Server
+    #[command(arg_required_else_help = true)]
+    Dev {
+        #[arg(long)]
+        root: String,
+        #[arg(long, default_value_t = 3119)]
+        port: u16,
     },
 }
 
@@ -82,6 +91,10 @@ fn run() -> Result<(), BuildError> {
             );
 
             Ok(())
+        }
+        Commands::Dev { root, port } => {
+            let root = Path::new(&root);
+            dev::serve(root, port)
         }
     }
 }
