@@ -57,6 +57,21 @@ pub enum BuildError {
         date: String,
         source: chrono::ParseError,
     },
+    MissingConfigFile {
+        path: PathBuf,
+    },
+    MissingPostsDirectory {
+        path: PathBuf,
+    },
+    InvalidSlug {
+        path: PathBuf,
+        slug: String,
+    },
+    BrokenMarkdownLink {
+        path: PathBuf,
+        link: String,
+        target: PathBuf,
+    },
     MissingRouteSlug {
         route: String,
     },
@@ -132,6 +147,21 @@ impl fmt::Display for BuildError {
             BuildError::ParseDate { path, date, .. } => {
                 write!(f, "could not parse date '{date}' in {}", path.display())
             }
+            BuildError::MissingConfigFile { path } => {
+                write!(f, "missing config file: {}", path.display())
+            }
+            BuildError::MissingPostsDirectory { path } => {
+                write!(f, "missing posts directory: {}", path.display())
+            }
+            BuildError::InvalidSlug { path, slug } => {
+                write!(f, "invalid slug '{slug}' in {}", path.display())
+            }
+            BuildError::BrokenMarkdownLink { path, link, target } => write!(
+                f,
+                "broken local Markdown link '{link}' in {} points to {}",
+                path.display(),
+                target.display()
+            ),
             BuildError::MissingRouteSlug { route } => {
                 write!(f, "post route must contain :slug: {route}")
             }
@@ -174,6 +204,10 @@ impl Error for BuildError {
             BuildError::ParseDate { source, .. } => Some(source),
             BuildError::MissingOpeningFrontmatter { .. }
             | BuildError::MissingClosingFrontmatter { .. }
+            | BuildError::MissingConfigFile { .. }
+            | BuildError::MissingPostsDirectory { .. }
+            | BuildError::InvalidSlug { .. }
+            | BuildError::BrokenMarkdownLink { .. }
             | BuildError::MissingRouteSlug { .. }
             | BuildError::SourceOutsidePostsDirectory { .. }
             | BuildError::DuplicateSlug { .. } => None,

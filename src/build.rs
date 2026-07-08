@@ -1,10 +1,9 @@
 use std::cmp::Reverse;
-use std::collections::HashMap;
 use std::path::PathBuf;
 
-use crate::content::{Post, Status};
+use crate::content::Status;
 use crate::errors::BuildError;
-use crate::{config, content, fs, markdown, render, routes};
+use crate::{fs, markdown, render, routes, validate};
 
 #[derive(Debug)]
 pub struct BuildResult {
@@ -15,13 +14,12 @@ pub struct BuildResult {
 }
 
 pub fn build_site(root: PathBuf) -> Result<BuildResult, BuildError> {
-    println!("Building site at: {:?}", root);
+    println!("Building site at: {}", root.display());
 
-    let config_path = root.join("blog.toml");
-    let config = config::load_config(config_path)?;
-
-    let posts_dir = root.join(&config.content.posts);
-    let output_dir = root.join(&config.output.directory);
+    let site = validate::validate_site(root.clone())?;
+    let config = site.config;
+    let posts_dir = site.posts_dir;
+    let output_dir = site.output_dir;
     let public_dir = root.join("public");
 
     fs::clean_dir(&output_dir)?;
@@ -38,34 +36,18 @@ pub fn build_site(root: PathBuf) -> Result<BuildResult, BuildError> {
         0
     };
 
-    let source_files = content::discover_markdown_files(&posts_dir)?;
-
-    let mut posts: Vec<Post> = Vec::new();
-
-    for source_path in source_files {
-        let post = content::post_from_path_location(&source_path)?;
-        posts.push(post);
-    }
-
-    validate_duplicate_slugs(&posts)?;
+    let mut posts = site.posts;
 
     for post in posts.iter_mut() {
         post.html = markdown::to_html(&post.body)?;
-
         post.url = routes::post_url(
             &config.routes.post,
             &post.slug,
             &posts_dir,
             &post.source_path,
         )?;
-
         post.output_path = routes::post_output_path(&output_dir, &post.url);
     }
-
-    let drafts = posts
-        .iter()
-        .filter(|post| post.status == Status::Draft)
-        .count();
 
     let mut published_posts = posts
         .into_iter()
@@ -87,35 +69,16 @@ pub fn build_site(root: PathBuf) -> Result<BuildResult, BuildError> {
     }
 
     Ok(BuildResult {
-        output_dir: root.join("dist"),
+        output_dir,
         posts: published_posts.len(),
-        drafts,
+        drafts: site.drafts,
         copied_assets,
     })
-}
-
-fn validate_duplicate_slugs(posts: &[Post]) -> Result<(), BuildError> {
-    let mut seen: HashMap<String, PathBuf> = HashMap::new();
-
-    for post in posts {
-        if let Some(previous_path) = seen.get(&post.slug) {
-            return Err(BuildError::DuplicateSlug {
-                slug: post.slug.clone(),
-                first_path: previous_path.clone(),
-                second_path: post.source_path.clone(),
-            });
-        }
-
-        seen.insert(post.slug.clone(), post.source_path.clone());
-    }
-
-    Ok(())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::NaiveDate;
     use std::fs;
     use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -125,42 +88,6 @@ mod tests {
             .unwrap()
             .as_nanos();
         std::env::temp_dir().join(format!("cable-{name}-{id}"))
-    }
-
-    fn post(slug: &str, source_path: PathBuf) -> Post {
-        Post {
-            title: slug.to_string(),
-            date: NaiveDate::from_ymd_opt(2026, 7, 5).unwrap(),
-            slug: slug.to_string(),
-            tags: Vec::new(),
-            status: Status::Published,
-            body: String::new(),
-            html: String::new(),
-            source_path,
-            output_path: PathBuf::new(),
-            url: String::new(),
-        }
-    }
-
-    #[test]
-    fn validate_duplicate_slugs_reports_both_paths() {
-        let posts = vec![
-            post("hello", PathBuf::from("content/posts/one.md")),
-            post("hello", PathBuf::from("content/posts/two.md")),
-        ];
-
-        let error = validate_duplicate_slugs(&posts).unwrap_err();
-
-        assert!(matches!(
-            error,
-            BuildError::DuplicateSlug {
-                ref slug,
-                ref first_path,
-                ref second_path
-            } if slug == "hello"
-                && first_path == &PathBuf::from("content/posts/one.md")
-                && second_path == &PathBuf::from("content/posts/two.md")
-        ));
     }
 
     #[test]
