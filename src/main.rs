@@ -24,26 +24,42 @@ struct Args {
 }
 
 #[derive(Debug, Subcommand)]
+enum NewCommands {
+    ///Creates a new post
+    #[command(arg_required_else_help = true)]
+    Post {
+        title: String,
+        #[arg(long, default_value = ".")]
+        root: String,
+    },
+}
+
+#[derive(Debug, Subcommand)]
 enum Commands {
     ///Builds a directory
     #[command(arg_required_else_help = true)]
     Build {
-        #[arg(long)]
+        #[arg(long, default_value = ".")]
         root: String,
     },
     ///Validates the root
     #[command(arg_required_else_help = true)]
     Validate {
-        #[arg(long)]
+        #[arg(long, default_value = ".")]
         root: String,
     },
     ///Dev Server
     #[command(arg_required_else_help = true)]
     Dev {
-        #[arg(long)]
+        #[arg(long, default_value = ".")]
         root: String,
         #[arg(long, default_value_t = 3119)]
         port: u16,
+    },
+    New {
+        ///New Post
+        #[command(subcommand)]
+        command: NewCommands,
     },
 }
 
@@ -95,6 +111,16 @@ fn run() -> Result<(), BuildError> {
         Commands::Dev { root, port } => {
             let root = Path::new(&root);
             dev::serve(root, port)
+        }
+        Commands::New { command } => {
+            match command {
+                NewCommands::Post { title, root } => {
+                    let root = Path::new(&root);
+                    let post_path = content::create_new_post(root, &title)?;
+                    println!("Created post: {}", post_path.display());
+                }
+            }
+            Ok(())
         }
     }
 }
