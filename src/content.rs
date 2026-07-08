@@ -15,16 +15,16 @@ pub enum Status {
 
 #[derive(Debug)]
 pub struct Post {
-    pub(crate) title: String,
-    pub(crate) date: NaiveDate,
+    pub title: String,
+    pub date: NaiveDate,
     pub slug: String,
-    pub(crate) tags: Vec<String>,
-    pub(crate) status: Status,
+    pub tags: Vec<String>,
+    pub status: Status,
     pub body: String,
     pub html: String,
     pub source_path: PathBuf,
     pub output_path: PathBuf,
-    pub(crate) url: String,
+    pub url: String,
 }
 
 #[derive(Debug)]

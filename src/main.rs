@@ -2,6 +2,7 @@ mod build;
 mod config;
 mod content;
 mod errors;
+mod feed;
 mod fs;
 mod markdown;
 mod render;

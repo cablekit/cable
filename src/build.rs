@@ -4,7 +4,7 @@ use std::path::PathBuf;
 
 use crate::content::{Post, Status};
 use crate::errors::BuildError;
-use crate::{config, content, fs, markdown, render, routes};
+use crate::{config, content, feed, fs, markdown, render, routes};
 
 #[derive(Debug)]
 pub struct BuildResult {
@@ -85,6 +85,9 @@ pub fn build_site(root: PathBuf) -> Result<BuildResult, BuildError> {
 
         fs::write_file(&post.output_path, &post_html)?;
     }
+
+    let feed_content = feed::generate_feed(&config, &published_posts);
+    fs::write_file(&output_dir.join("feed.xml"), &feed_content)?;
 
     Ok(BuildResult {
         output_dir: root.join("dist"),

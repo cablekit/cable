@@ -206,15 +206,24 @@ fn render_tags(tags: &[String]) -> String {
     format!(r#"<div class="tags">{tags}</div>"#)
 }
 
-fn absolute_url(site_url: &str, path: &str) -> String {
+pub(crate) fn absolute_url(site_url: &str, path: &str) -> String {
     let site_url = site_url.trim_end_matches('/');
-    let path = if path.starts_with('/') {
-        path.to_string()
-    } else {
-        format!("/{path}")
-    };
+    let path = path.trim_start_matches("./");
+    let path = format!("/{}", path.trim_start_matches('/'));
 
     format!("{site_url}{path}")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn absolute_url_normalizes_dot_relative_paths() {
+        let url = absolute_url("https://example.com/", "./posts/hello-world.html");
+
+        assert_eq!(url, "https://example.com/posts/hello-world.html");
+    }
 }
 
 pub fn default_css() -> &'static str {
