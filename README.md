@@ -116,5 +116,30 @@ Check formatting:
 cargo fmt --check
 ```
 
+## Current Development Roadmap
+### Phase 2 v0.2.0
+- ~~Dev Server~~
+- ~~Post Command~~
+- ~~Validate Command~~
+- Init Command
+- Robots.txt
+- RSS Feed
+- Better Content Model
+- Tag Pages
+- Archive Page
+- Sitemap
+- Layout Updates
+  - site header
+  - navigation
+  - footer
+  - tag links
+  - archive link
+  - feed link
+  - better typography
+  - responsive layout
+  - basic SEO
+- Better Errors
+- Internal Link Checking?
+
 ## Further Reading
 To read my progress on CABLE please find my blog here https://thecassiofeed.com 
