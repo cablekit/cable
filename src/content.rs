@@ -1,5 +1,6 @@
 use crate::errors::BuildError;
-use chrono::NaiveDate;
+use crate::{config, fs as cable_fs};
+use chrono::{Local, NaiveDate};
 use serde::Deserialize;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -81,6 +82,19 @@ pub fn post_from_path_location(source_path: &PathBuf) -> Result<Post, BuildError
     Ok(post)
 }
 
+pub fn create_new_post(root: &Path, title: &str) -> Result<PathBuf, BuildError> {
+    let config = config::load_config(root.join("blog.toml"))?;
+    let date = Local::now().date_naive();
+    let slug = title_to_slug(title);
+    let file_name = format!("{}-{slug}.md", date.format("%Y-%m-%d"));
+    let post_path = root.join(config.content.posts).join(file_name);
+    let content = new_post_content(title, &slug, &date.to_string());
+
+    cable_fs::write_file(&post_path, &content)?;
+
+    Ok(post_path)
+}
+
 fn read_markdown_file(source_path: &PathBuf) -> Result<String, BuildError> {
     let content = fs::read_to_string(source_path).map_err(|source| BuildError::ReadFile {
         path: source_path.clone(),
@@ -141,6 +155,46 @@ fn post_from_parsed_file(parsed_file: Parsed, source_path: &Path) -> Result<Post
         output_path: PathBuf::new(),
         url: format!("/{}/", frontmatter.slug),
     })
+}
+
+fn new_post_content(title: &str, slug: &str, date: &str) -> String {
+    format!(
+        r#"---
+title: "{}"
+date: "{}"
+slug: "{}"
+tags: []
+status: "draft"
+---
+
+#This is where your post goes
+
+"#,
+        yaml_escape(title),
+        date,
+        slug
+    )
+}
+
+fn title_to_slug(title: &str) -> String {
+    let mut slug = String::new();
+    let mut previous_was_dash = false;
+
+    for character in title.chars().flat_map(char::to_lowercase) {
+        if character.is_ascii_alphanumeric() {
+            slug.push(character);
+            previous_was_dash = false;
+        } else if !previous_was_dash && !slug.is_empty() {
+            slug.push('-');
+            previous_was_dash = true;
+        }
+    }
+
+    slug.trim_end_matches('-').to_string()
+}
+
+fn yaml_escape(value: &str) -> String {
+    value.replace('\\', "\\\\").replace('"', "\\\"")
 }
 
 #[cfg(test)]
@@ -237,5 +291,22 @@ status: "published"
         let error = post_from_parsed_file(parsed, &path).unwrap_err();
 
         assert!(matches!(error, BuildError::ParseDate { .. }));
+    }
+
+    #[test]
+    fn title_to_slug_normalizes_title_for_filename() {
+        assert_eq!(title_to_slug("Hello, Cable World!"), "hello-cable-world");
+        assert_eq!(title_to_slug("  Multiple   Spaces  "), "multiple-spaces");
+    }
+
+    #[test]
+    fn new_post_content_creates_draft_frontmatter() {
+        let content = new_post_content("Hello \"Cable\"", "hello-cable", "2026-07-08");
+
+        assert!(content.contains("title: \"Hello \\\"Cable\\\"\""));
+        assert!(content.contains("date: \"2026-07-08\""));
+        assert!(content.contains("slug: \"hello-cable\""));
+        assert!(content.contains("tags: []"));
+        assert!(content.contains("status: \"draft\""));
     }
 }
