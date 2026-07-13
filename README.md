@@ -1,89 +1,120 @@
-# C.A.B.L.E.
-## Cass's Automatic Blogging & Layout Engine
+# Cable
 
+Cable is a static blog generator written in Rust.
 
+It builds a blog from Markdown files and a TOML config. The output is
+plain HTML and CSS, so it can be hosted anywhere.
 
-This is the cable project. 
+## Getting Started
 
-## Phase 1 Goal
+Build the example blog:
 
-Build a Rust CLI that can take this:
+```powershell
+cargo run build --root examples/basic
+```
 
-```txt
+The generated site will be written to `examples/basic/dist`.
+
+To run it locally:
+
+```powershell
+cargo run dev --root examples/basic
+```
+
+Open `http://127.0.0.1:3119`.
+
+## Commands
+
+Build a site:
+
+```powershell
+cargo run build --root path/to/site
+```
+
+Validate a site:
+
+```powershell
+cargo run validate --root path/to/site
+```
+
+Start the dev server:
+
+```powershell
+cargo run dev --root path/to/site --port 3119
+```
+
+Create a post:
+
+```powershell
+cargo run new post "My Post Title" --root path/to/site
+```
+
+## Site Setup
+
+A Cable site needs a `blog.toml` file and a posts directory.
+
+```text
 my-blog/
   blog.toml
   content/
     posts/
       hello-world.md
   public/
-    logo.svg
+  dist/
 ```
 
-And generate this:
+Example config:
 
-```txt
-my-blog/dist/
-  index.html
-  posts/
-    hello-world/
-      index.html
-  logo.svg
+```toml
+[site]
+title = "My Blog"
+description = "Notes and writing"
+url = "https://example.com"
+
+[content]
+posts = "content/posts"
+
+[output]
+directory = "dist"
+
+[routes]
+post = "/posts/:slug"
 ```
 
-The core promise for Phase 1 is:
+## Writing Posts
 
-```txt
-Cable reads a blog folder.
-Cable loads blog.toml.
-Cable finds Markdown posts.
-Cable generates static HTML into dist/.
-Cable copies public assets.
-Cable can build examples/basic and site.
-```
+Posts are Markdown files with front matter.
 
-## Phase 1 Includes
-
-Phase 1 includes:
-
-```txt
-- Rust CLI project
-- build command
-- blog.toml config file
-- Markdown post discovery
-- YAML frontmatter parsing
-- Markdown to HTML conversion
-- Static index page generation
-- Static post page generation
-- public/ asset copying
-- draft skipping
-- duplicate slug detection
-- readable build summary
-- readable error messages for common failures
-```
-
+```markdown
+---
+title: "Hello World"
+date: "2026-06-27"
+slug: "hello-world"
+tags:
+  - intro
+status: "published"
 ---
 
-## Phase 1 Does Not Include
+# Hello World
 
-Phase 1 intentionally does not include:
-
-```txt
-- admin dashboard
-- database
-- authentication
-- comments
-- plugin system
-- theme system
-- RSS
-- sitemap
-- search
-- MDX
-- image optimization
-- dev server
-- hot reload
-- deployment adapters
-- importers
-- analytics
-- visual editor
+This is my first post.
 ```
 
+Set `status` to `draft` to keep a post out of the build.
+
+## Development
+
+Run the tests:
+
+```powershell
+cargo test
+```
+
+Check formatting:
+
+```powershell
+cargo fmt --check
+```
+
+## Further Reading
+To read my progress on CABLE please find my blog here https://thecassiofeed.com 
