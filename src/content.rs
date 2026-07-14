@@ -167,7 +167,7 @@ tags: []
 status: "draft"
 ---
 
-#This is where your post goes
+# This is where your post goes
 
 "#,
         yaml_escape(title),
