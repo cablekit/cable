@@ -279,6 +279,33 @@ fn root_relative_url(path: &str) -> String {
     }
 }
 
+pub fn render_sitemap<'a>(
+    config: &BlogConfig,
+    urls: impl IntoIterator<Item = &'a str>,
+) -> Result<String, BuildError> {
+    let mut entries = Vec::new();
+
+    for url in urls {
+        let loc = absolute_url(&config.site.url, url);
+        let loc = html_escape::encode_text(&loc);
+
+        entries.push(format!(
+            r#"    <url>
+        <loc>{loc}</loc>
+    </url>"#
+        ));
+    }
+
+    Ok(format!(
+        r#"<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+{}
+</urlset>
+"#,
+        entries.join("\n")
+    ))
+}
+
 pub fn default_css() -> &'static str {
     r#":root {
     color-scheme: light dark;
@@ -654,5 +681,23 @@ mod tests {
                 r#"<link rel="canonical" href="https://example.com/tags/rust-tips.html">"#
             )
         );
+    }
+
+    #[test]
+    fn render_sitemap_outputs_absolute_escaped_urls() {
+        let config = config();
+        let sitemap = render_sitemap(
+            &config,
+            ["/", "./posts/hello.html", "/tags/rust & web.html"],
+        )
+        .unwrap();
+
+        assert!(sitemap.starts_with(r#"<?xml version="1.0" encoding="UTF-8"?>"#));
+        assert!(
+            sitemap.contains(r#"<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">"#)
+        );
+        assert!(sitemap.contains(r#"<loc>https://example.com/</loc>"#));
+        assert!(sitemap.contains(r#"<loc>https://example.com/posts/hello.html</loc>"#));
+        assert!(sitemap.contains(r#"<loc>https://example.com/tags/rust &amp; web.html</loc>"#));
     }
 }
