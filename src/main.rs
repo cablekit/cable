@@ -7,6 +7,7 @@ mod fs;
 mod markdown;
 mod render;
 mod routes;
+mod tags;
 mod validate;
 
 use clap::{Parser, Subcommand};

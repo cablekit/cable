@@ -176,7 +176,7 @@ status: "draft"
     )
 }
 
-fn title_to_slug(title: &str) -> String {
+pub fn title_to_slug(title: &str) -> String {
     let mut slug = String::new();
     let mut previous_was_dash = false;
 
