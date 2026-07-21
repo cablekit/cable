@@ -1,6 +1,8 @@
 use crate::config::BlogConfig;
 use crate::content::Post;
 use crate::errors::BuildError;
+use crate::tags;
+use crate::tags::Tag;
 
 struct PageMeta<'a> {
     title: &'a str,
@@ -99,6 +101,46 @@ pub fn render_post(config: &BlogConfig, post: &Post) -> Result<String, BuildErro
     )
 }
 
+pub fn render_tag(config: &BlogConfig, tag: &Tag<'_>) -> Result<String, BuildError> {
+    let tag_name = html_escape::encode_text(&tag.name);
+    let post_count = tag.posts.len();
+    let page_title = format!("{} | {}", tag.name, config.site.title);
+    let description = format!("{post_count} posts tagged {}", tag.name);
+
+    let header = render_site_header(config);
+    let post_list = render_tag_post_list(&tag.posts);
+
+    let body = format!(
+        r#"<main class="site">
+    {header}
+
+    <section class="hero">
+        <p class="eyebrow">Tag</p>
+        <h1>{tag_name}</h1>
+        <p>{post_count} posts</p>
+    </section>
+
+    <section class="post-list" aria-label="Posts tagged {tag_name}">
+        {post_list}
+    </section>
+</main>"#
+    );
+
+    let canonical_url = absolute_url(&config.site.url, &format!("/tags/{}.html", tag.slug));
+
+    render_page(
+        config,
+        PageMeta {
+            title: &page_title,
+            description: &description,
+            canonical_url: Some(&canonical_url),
+            body_class: "page page-tag",
+            og_type: "website",
+        },
+        &body,
+    )
+}
+
 fn render_page(config: &BlogConfig, meta: PageMeta<'_>, body: &str) -> Result<String, BuildError> {
     let site_title = html_escape::encode_double_quoted_attribute(&config.site.title);
     let page_title_text = html_escape::encode_text(meta.title);
@@ -166,13 +208,26 @@ fn render_post_list(posts: &[Post]) -> String {
         .join("\n")
 }
 
+fn render_tag_post_list(posts: &[&Post]) -> String {
+    if posts.is_empty() {
+        return r#"<p class="empty-state">No posts published for this tag yet.</p>"#.to_string();
+    }
+
+    posts
+        .iter()
+        .map(|post| render_post_card(post))
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
 fn render_post_card(post: &Post) -> String {
     let title = html_escape::encode_text(&post.title);
 
     let date = &post.date.to_string();
     let date_text = html_escape::encode_text(date);
     let datetime = html_escape::encode_double_quoted_attribute(date);
-    let url = html_escape::encode_double_quoted_attribute(&post.url);
+    let post_url = root_relative_url(&post.url);
+    let url = html_escape::encode_double_quoted_attribute(&post_url);
     let tags = render_tags(&post.tags);
 
     format!(
@@ -198,7 +253,8 @@ fn render_tags(tags: &[String]) -> String {
         .iter()
         .map(|tag| {
             let label = html_escape::encode_text(tag);
-            format!(r#"<span class="tag">{label}</span>"#)
+            let url = tags::tag_url(tag);
+            format!(r#"<a class="tag" href="/tags/{url}">{label}</a>"#)
         })
         .collect::<Vec<_>>()
         .join("");
@@ -208,13 +264,19 @@ fn render_tags(tags: &[String]) -> String {
 
 fn absolute_url(site_url: &str, path: &str) -> String {
     let site_url = site_url.trim_end_matches('/');
-    let path = if path.starts_with('/') {
+    let path = root_relative_url(path);
+
+    format!("{site_url}{path}")
+}
+
+fn root_relative_url(path: &str) -> String {
+    let path = path.trim_start_matches("./");
+
+    if path.starts_with('/') {
         path.to_string()
     } else {
         format!("/{path}")
-    };
-
-    format!("{site_url}{path}")
+    }
 }
 
 pub fn default_css() -> &'static str {
@@ -527,4 +589,70 @@ a:hover {
     }
 }
 "#
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::{BlogConfig, ContentConfig, OutputConfig, RouteConfig, SiteConfig};
+    use crate::content::Status;
+    use chrono::NaiveDate;
+    use std::path::PathBuf;
+
+    fn config() -> BlogConfig {
+        BlogConfig {
+            site: SiteConfig {
+                title: String::from("Test Blog"),
+                description: String::from("A test site"),
+                url: String::from("https://example.com"),
+            },
+            content: ContentConfig {
+                posts: String::from("content/posts"),
+            },
+            output: OutputConfig {
+                directory: PathBuf::from("dist"),
+            },
+            routes: RouteConfig {
+                post: String::from("./posts/:slug"),
+            },
+        }
+    }
+
+    fn post() -> Post {
+        Post {
+            title: String::from("Nested Post"),
+            date: NaiveDate::from_ymd_opt(2026, 7, 21).unwrap(),
+            slug: String::from("nested-post"),
+            tags: vec![String::from("Rust Tips")],
+            status: Status::Published,
+            body: String::new(),
+            html: String::new(),
+            source_path: PathBuf::from("content/posts/nested/post.md"),
+            output_path: PathBuf::from("dist/posts/nested/post.html"),
+            url: String::from("./posts/nested/post.html"),
+        }
+    }
+
+    #[test]
+    fn render_tag_uses_root_relative_post_links() {
+        let config = config();
+        let post = post();
+        let tag = Tag {
+            name: String::from("Rust Tips"),
+            slug: String::from("rust-tips"),
+            posts: vec![&post],
+        };
+
+        let html = render_tag(&config, &tag).unwrap();
+
+        assert!(html.contains("<h1>Rust Tips</h1>"));
+        assert!(html.contains(r#"<a href="/posts/nested/post.html">Nested Post</a>"#));
+        assert!(!html.contains(r#"href="./posts/nested/post.html""#));
+        assert!(html.contains(r#"<a class="tag" href="/tags/rust-tips.html">Rust Tips</a>"#));
+        assert!(
+            html.contains(
+                r#"<link rel="canonical" href="https://example.com/tags/rust-tips.html">"#
+            )
+        );
+    }
 }
