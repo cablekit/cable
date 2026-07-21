@@ -3,7 +3,7 @@ use std::path::PathBuf;
 
 use crate::content::Status;
 use crate::errors::BuildError;
-use crate::{fs, markdown, render, routes, validate};
+use crate::{fs, markdown, render, routes, tags, validate};
 
 #[derive(Debug)]
 pub struct BuildResult {
@@ -56,8 +56,10 @@ pub fn build_site(root: PathBuf) -> Result<BuildResult, BuildError> {
 
     published_posts.sort_by_key(|post| Reverse(post.date));
 
-    let index_html = render::render_index(&config, &published_posts)?;
+    let tags = tags::generate_tags(&published_posts);
+    let tag_root = output_dir.join("tags");
 
+    let index_html = render::render_index(&config, &published_posts)?;
     let index_path = output_dir.join("index.html");
 
     fs::write_file(&index_path, &index_html)?;
@@ -66,6 +68,13 @@ pub fn build_site(root: PathBuf) -> Result<BuildResult, BuildError> {
         let post_html = render::render_post(&config, post)?;
 
         fs::write_file(&post.output_path, &post_html)?;
+    }
+
+    for tag in &tags {
+        let tag_html = render::render_tag(&config, tag)?;
+        let tag_path = tag_root.join(format!("{}.html", tag.slug));
+
+        fs::write_file(&tag_path, &tag_html)?;
     }
 
     Ok(BuildResult {
@@ -110,7 +119,7 @@ posts = "content/posts"
 directory = "dist"
 
 [routes]
-post = "/posts/:slug"
+post = "./posts/:slug"
 "#,
         )
         .unwrap();
@@ -120,7 +129,8 @@ post = "/posts/:slug"
 title: "Hello"
 date: "2026-07-05"
 slug: "hello"
-tags: []
+tags:
+  - rust
 status: "published"
 ---
 
@@ -143,6 +153,14 @@ Nested body.
                 .join("hello.html")
                 .exists()
         );
+        let tag_page_path = root.join("dist").join("tags").join("rust.html");
+        assert!(tag_page_path.exists());
+
+        let tag_page = fs::read_to_string(tag_page_path).unwrap();
+        assert!(tag_page.contains("<h1>rust</h1>"));
+        assert!(tag_page.contains(r#"<a href="/posts/nested/hello.html">Hello</a>"#));
+        assert!(!tag_page.contains(r#"href="./posts/nested/hello.html""#));
+
         fs::remove_dir_all(root).unwrap();
     }
 }
