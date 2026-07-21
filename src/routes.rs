@@ -43,6 +43,32 @@ pub fn post_output_path(output_dir: &Path, url: &str) -> PathBuf {
     output_dir.join(url.trim_start_matches('/'))
 }
 
+pub fn output_path_to_url(output_dir: &Path, output_path: &Path) -> Result<String, BuildError> {
+    let relative_path = output_path.strip_prefix(output_dir).map_err(|_| {
+        BuildError::OutputPathOutsideOutputDirectory {
+            output_dir: output_dir.to_path_buf(),
+            output_path: output_path.to_path_buf(),
+        }
+    })?;
+
+    if relative_path == Path::new("index.html") {
+        return Ok(String::from("/"));
+    }
+
+    let mut url = relative_path.to_string_lossy().replace('\\', "/");
+
+    if let Some(parent) = relative_path.parent()
+        && relative_path
+            .file_name()
+            .is_some_and(|file| file == "index.html")
+        && !parent.as_os_str().is_empty()
+    {
+        url = format!("{}/", parent.to_string_lossy().replace('\\', "/"));
+    }
+
+    Ok(format!("/{url}"))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -75,5 +101,48 @@ mod tests {
         let output_path = post_output_path(&output_dir, &url);
 
         assert_eq!(output_path, PathBuf::from("dist").join("posts/hello.html"));
+    }
+
+    #[test]
+    fn output_path_to_url_converts_html_path_under_output_directory() {
+        let output_dir = PathBuf::from("dist");
+        let output_path = output_dir.join("tags").join("rust.html");
+
+        let url = output_path_to_url(&output_dir, &output_path).unwrap();
+
+        assert_eq!(url, "/tags/rust.html");
+    }
+
+    #[test]
+    fn output_path_to_url_converts_root_index_to_site_root() {
+        let output_dir = PathBuf::from("dist");
+        let output_path = output_dir.join("index.html");
+
+        let url = output_path_to_url(&output_dir, &output_path).unwrap();
+
+        assert_eq!(url, "/");
+    }
+
+    #[test]
+    fn output_path_to_url_converts_nested_index_to_directory_url() {
+        let output_dir = PathBuf::from("dist");
+        let output_path = output_dir.join("tags").join("rust").join("index.html");
+
+        let url = output_path_to_url(&output_dir, &output_path).unwrap();
+
+        assert_eq!(url, "/tags/rust/");
+    }
+
+    #[test]
+    fn output_path_to_url_rejects_paths_outside_output_directory() {
+        let output_dir = PathBuf::from("dist");
+        let output_path = PathBuf::from("other").join("tags").join("rust.html");
+
+        let error = output_path_to_url(&output_dir, &output_path).unwrap_err();
+
+        assert!(matches!(
+            error,
+            BuildError::OutputPathOutsideOutputDirectory { .. }
+        ));
     }
 }

@@ -79,6 +79,10 @@ pub enum BuildError {
         posts_dir: PathBuf,
         source_path: PathBuf,
     },
+    OutputPathOutsideOutputDirectory {
+        output_dir: PathBuf,
+        output_path: PathBuf,
+    },
     DuplicateSlug {
         slug: String,
         first_path: PathBuf,
@@ -174,6 +178,15 @@ impl fmt::Display for BuildError {
                 source_path.display(),
                 posts_dir.display()
             ),
+            BuildError::OutputPathOutsideOutputDirectory {
+                output_dir,
+                output_path,
+            } => write!(
+                f,
+                "output path {} is not inside output directory {}",
+                output_path.display(),
+                output_dir.display()
+            ),
             BuildError::DuplicateSlug {
                 slug,
                 first_path,
@@ -210,6 +223,7 @@ impl Error for BuildError {
             | BuildError::BrokenMarkdownLink { .. }
             | BuildError::MissingRouteSlug { .. }
             | BuildError::SourceOutsidePostsDirectory { .. }
+            | BuildError::OutputPathOutsideOutputDirectory { .. }
             | BuildError::DuplicateSlug { .. } => None,
         }
     }
